@@ -20,8 +20,11 @@ protocol FIG {
 import idl "bdg.avdl";
 
 record BindingSite {
+  // transcription factor
+  string tf;
+
   // position
-  org.bdgenomics.formats.avro.Contig chromosome;
+  org.bdgenomics.formats.avro.Contig contig;
   long start;
   long end;
 
@@ -29,15 +32,23 @@ record BindingSite {
   org.bdgenomics.formats.avro.Strand orientation;
 
   // sequence and affinity
-  string sequence;
-  union { null, double } predictedAffinityForward;
-  union { null, double } predictedAffinityReverse;
+  union { null, string } sequence = null;
+  union { null, double } predictedAffinityForward = null;
+  union { null, double } predictedAffinityReverse = null;
 }
 
 record Promoter {
   // which gene and sample is this from?
   union { null, string } sampleId = null;
   string gene;
+
+  // did this come from a phased or pooled set of variants?
+  boolean isPhased = false;
+
+  // if this was from a phased set of variants, what was the site copy number,
+  // and which haplotype are we on?
+  union { null, int } copyNumber = null;
+  union { null, int } haplotypeNumber = null;
 
   // the variants in this promoter
   array<org.bdgenomics.formats.avro.Variant> variants = {};
