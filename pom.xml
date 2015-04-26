@@ -241,16 +241,6 @@
 
   <dependencies>
     <dependency>
-      <groupId>org.kitesdk</groupId>
-      <artifactId>kite-data-core</artifactId>
-      <version>1.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.kitesdk</groupId>
-      <artifactId>kite-data-mapreduce</artifactId>
-      <version>1.0.0</version>
-    </dependency>
-    <dependency>
       <groupId>com.twitter</groupId>
       <artifactId>parquet-avro</artifactId>
       <version>${parquet.version}</version>
@@ -265,6 +255,11 @@
     <dependency>
       <groupId>org.bdgenomics.bdg-utils</groupId>
       <artifactId>bdg-utils-misc</artifactId>
+      <version>${utils.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.bdgenomics.bdg-utils</groupId>
+      <artifactId>bdg-utils-parquet</artifactId>
       <version>${utils.version}</version>
     </dependency>
     <dependency>
