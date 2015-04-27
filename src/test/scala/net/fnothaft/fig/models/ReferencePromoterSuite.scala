@@ -57,9 +57,9 @@ class ReferencePromoterSuite extends FigFunSuite {
                                      Iterable())))
 
     val f = sc.parallelize(Seq(
-      "tf1 alphabet 2 5 i",
-      "tf2 alphabet 12 15 i",
-      "tf3 alphabet 21 24 i"))
+      "tf1 alphabet 2 5 +",
+      "tf2 alphabet 12 15 +",
+      "tf3 alphabet 21 24 +"))
     
     val rpArray = ReferencePromoter(sc.parallelize(Seq(g)),
                                     f,
@@ -79,13 +79,13 @@ class ReferencePromoterSuite extends FigFunSuite {
     assert(tf1.getContig.getContigName === "alphabet")
     assert(tf1.getStart === 2L)
     assert(tf1.getEnd === 5L)
-    assert(tf1.getOrientation === Strand.Independent)
+    assert(tf1.getOrientation === Strand.Forward)
     assert(rp.tfbs.filter(_.getTf === "tf2").size === 1)
     val tf2 = rp.tfbs.filter(_.getTf === "tf2").head
     assert(tf2.getContig.getContigName === "alphabet")
     assert(tf2.getStart === 12L)
     assert(tf2.getEnd === 15L)
-    assert(tf2.getOrientation === Strand.Independent)
+    assert(tf2.getOrientation === Strand.Forward)
   }
 
   sparkTest("test tfbs load from file") {
@@ -106,6 +106,6 @@ class ReferencePromoterSuite extends FigFunSuite {
       .length === 2)
     assert(tfbs.filter(f => f.getStart == 11482L && f.getEnd == 11493L)
       .length === 1)
-    assert(tfbs.map(f => f.getOrientation).distinct.size === 3)
+    assert(tfbs.map(f => f.getOrientation).distinct.size === 2)
   }
 }

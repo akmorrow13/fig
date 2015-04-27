@@ -38,8 +38,6 @@ object ReferencePromoter extends Serializable {
         Strand.Reverse
       } else if (sl(4) == "+") {
         Strand.Forward
-      } else if (sl(4) == "i") {
-        Strand.Independent
       } else {
         throw new IllegalArgumentException("Unknown strand '%s' for: %s.".format(sl(4), l))
       }
