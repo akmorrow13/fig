@@ -83,6 +83,10 @@ class Fig(protected val args: FigArgs) extends BDGSparkCommand[FigArgs] {
     // load in motifs
     val motifs = Motif(args.motifs)
 
+    // apply variants to promoters
+    val variants = VariantPromoter(structures,
+                                   sc.loadGenotypes(args.genotypes))
+
     ???
   }
 }

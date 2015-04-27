@@ -52,7 +52,6 @@ class MotifSuite extends FunSuite {
 
     val motifs = Motif(ap1Path)
 
-    motifs.foreach(println)
     assert(motifs.length === 2)
     assert(motifs.filter(_.label == "AP1_disc1").length === 1)
     assert(motifs.filter(_.label == "AP1_disc1")
