@@ -33,7 +33,8 @@ object ReferencePromoter extends Serializable {
       val sl = l.split(' ')
       val ctg = sl(1)
       val start = sl(2).toLong
-      val end = sl(3).toLong
+      // end is inclusive
+      val end = sl(3).toLong + 1L
       val orientation = if(sl(4) == "-") {
         Strand.Reverse
       } else if (sl(4) == "+") {

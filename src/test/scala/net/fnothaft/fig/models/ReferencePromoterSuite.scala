@@ -76,9 +76,9 @@ class ReferencePromoterSuite extends FigFunSuite {
                                      Iterable())))
 
     val f = sc.parallelize(Seq(
-      "tf1 alphabet 2 5 +",
-      "tf2 alphabet 12 15 +",
-      "tf3 alphabet 21 24 +"))
+      "tf1 alphabet 2 4 +",
+      "tf2 alphabet 12 14 +",
+      "tf3 alphabet 21 23 +"))
     
     val rpArray = ReferencePromoter(sc.parallelize(Seq(g)),
                                     f,
@@ -126,9 +126,9 @@ class ReferencePromoterSuite extends FigFunSuite {
 
     assert(tfbs.size === 3)
     assert(tfbs.forall(_.getContig.getContigName === "chr1"))
-    assert(tfbs.filter(f => f.getStart == 11483L && f.getEnd == 11492L)
+    assert(tfbs.filter(f => f.getStart == 11483L && f.getEnd == 11493L)
       .length === 2)
-    assert(tfbs.filter(f => f.getStart == 11482L && f.getEnd == 11493L)
+    assert(tfbs.filter(f => f.getStart == 11482L && f.getEnd == 11494L)
       .length === 1)
     assert(tfbs.map(f => f.getOrientation).distinct.size === 2)
   }
