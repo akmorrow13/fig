@@ -90,6 +90,10 @@ class Fig(protected val args: FigArgs) extends BDGSparkCommand[FigArgs] {
                                    sc.loadGenotypes(args.genotypes),
                                    motifRepository)
 
+    // map variant promoters to final annotations, and cache
+    val annotatedPromoters = variants.map(_.label)
+      .cache()
+
     ???
   }
 }

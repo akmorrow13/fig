@@ -533,4 +533,105 @@ class VariantPromoterSuite extends FigFunSuite {
     assert(site.getSequence === "AC")
     assert(site.getShift === -1)
   }
+
+  test("annotate a scored promoter with three tfbs, one modified, one lost, and one unmodified but moved") {
+    val promoter = VariantPromoter(ReferencePromoter("myGene",
+                                                     ReferenceRegion("chrom1", 0L, 20L),
+                                                     ReferencePosition("chrom1", 25L),
+                                                     "ACAGTCATATCTAATGCATA",
+                                                     Iterable(BindingSite.newBuilder()
+                                                       .setTf("tf1")
+                                                       .setContig(Contig.newBuilder()
+                                                       .setContigName("chrom1")
+                                                       .build())
+                                                       .setStart(2L)
+                                                       .setEnd(4L)
+                                                       .setOrientation(Strand.Forward)
+                                                       .setSequence("AG")
+                                                       .setPredictedAffinity(0.5)
+                                                       .build(),
+                                                              BindingSite.newBuilder()
+                                                       .setTf("tf2")
+                                                       .setContig(Contig.newBuilder()
+                                                       .setContigName("chrom1")
+                                                       .build())
+                                                       .setStart(5L)
+                                                       .setEnd(7L)
+                                                       .setOrientation(Strand.Reverse)
+                                                       .setSequence("AC")
+                                                       .setPredictedAffinity(0.5)
+                                                       .build(),
+                                                              BindingSite.newBuilder()
+                                                       .setTf("tf3")
+                                                       .setContig(Contig.newBuilder()
+                                                       .setContigName("chrom1")
+                                                       .build())
+                                                       .setStart(12L)
+                                                       .setEnd(14L)
+                                                       .setOrientation(Strand.Forward)
+                                                       .setSequence("AA")
+                                                       .setPredictedAffinity(0.5)
+                                                       .build())),
+                                   "mySample",
+                                   0,
+                                   1,
+                                   "ACATTCTATCTAATGCATA",
+                                   Iterable(Variant.newBuilder()
+                                     .setContig(Contig.newBuilder()
+                                     .setContigName("chrom1")
+                                     .build())
+                                     .setReferenceAllele("G")
+                                     .setAlternateAllele("T")
+                                     .setStart(3L)
+                                     .setEnd(4L)
+                                     .build(),
+                                            Variant.newBuilder()
+                                              .setContig(Contig.newBuilder()
+                                              .setContigName("chrom1")
+                                              .build())
+                                              .setReferenceAllele("CA")
+                                              .setAlternateAllele("C")
+                                              .setStart(5L)
+                                              .setEnd(7L)
+                                              .build()),
+                                   Iterable(BindingSite.newBuilder()
+                                     .setTf("tf1")
+                                     .setContig(Contig.newBuilder()
+                                     .setContigName("chrom1")
+                                     .build())
+                                     .setStart(2L)
+                                     .setEnd(4L)
+                                     .setOrientation(Strand.Forward)
+                                     .setSequence("AT")
+                                     .setPredictedAffinity(0.25)
+                                     .build(),
+                                            BindingSite.newBuilder()
+                                              .setTf("tf3")
+                                              .setContig(Contig.newBuilder()
+                                              .setContigName("chrom1")
+                                              .build())
+                                              .setStart(12L)
+                                              .setEnd(14L)
+                                              .setOrientation(Strand.Forward)
+                                              .setShift(-1)
+                                              .setSequence("AA")
+                                              .setPredictedAffinity(0.5)
+                                              .build()))
+    val label = promoter.label
+
+    assert(label.getSampleId === "mySample")
+    assert(label.getGene === "myGene")
+    assert(label.getCopyNumber === 1)
+    assert(label.getHaplotypeNumber === 0)
+    assert(label.getVariants.length === 2)
+    assert(label.getUnmodifiedTfbs.length === 1)
+    assert(label.getUnmodifiedTfbs.get(0).getTf === "tf3")
+    assert(label.getUnmodifiedTfbs.get(0).getShift === -1)
+    assert(label.getModifiedTfbs.length === 1)
+    assert(label.getModifiedTfbs.get(0).getTf === "tf1")
+    assert(label.getModifiedTfbs.get(0).getShift === 0)
+    assert(MathUtils.fpEquals(label.getModifiedTfbs.get(0).getAffinityChange, 0.5))
+    assert(label.getLostTfbs.length === 1)
+    assert(label.getLostTfbs.get(0).getTf === "tf2")
+  }
 }

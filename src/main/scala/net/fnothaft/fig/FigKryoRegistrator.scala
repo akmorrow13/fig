@@ -16,16 +16,17 @@
 package net.fnothaft.fig
 
 import com.esotericsoftware.kryo.Kryo
+import net.fnothaft.fig.avro._
 import org.apache.spark.serializer.KryoRegistrator
 import org.bdgenomics.adam.serialization.AvroSerializer
 import org.bdgenomics.formats.avro.{ Genotype, Feature }
-import net.fnothaft.fig.avro.{ BindingSite, Promoter }
 
 class FigKryoRegistrator extends KryoRegistrator {
   override def registerClasses(kryo: Kryo) {
     kryo.register(classOf[Genotype], new AvroSerializer[Genotype]())
     kryo.register(classOf[Feature], new AvroSerializer[Feature]())
     kryo.register(classOf[BindingSite], new AvroSerializer[BindingSite]())
-    kryo.register(classOf[Promoter], new AvroSerializer[Promoter]())
+    kryo.register(classOf[LabeledPromoter], new AvroSerializer[LabeledPromoter]())
+    kryo.register(classOf[ModifiedBindingSite], new AvroSerializer[ModifiedBindingSite]())
   }
 }

@@ -37,27 +37,51 @@ record BindingSite {
   union { null, double } predictedAffinity = null;
 }
 
-record Promoter {
-  // which gene and sample is this from?
-  union { null, string } sampleId = null;
-  string gene;
+record ModifiedBindingSite {
+  // transcription factor
+  string tf;
 
-  // did this come from a phased or pooled set of variants?
-  boolean isPhased = false;
+  // position
+  org.bdgenomics.formats.avro.Contig contig;
+  long start;
+  long end;
+  int shift;
+
+  // orientation
+  org.bdgenomics.formats.avro.Strand orientation;
+
+  // sequence and affinity
+  double affinityChange;
+}
+
+record LabeledPromoter {
+  // which gene and sample is this from?
+  string sampleId;
+  string gene;
 
   // if this was from a phased set of variants, what was the site copy number,
   // and which haplotype are we on?
-  union { null, int } copyNumber = null;
-  union { null, int } haplotypeNumber = null;
+  int copyNumber;
+  int haplotypeNumber;
 
   // the variants in this promoter
   array<org.bdgenomics.formats.avro.Variant> variants = {};
 
-  // the binding sites in this promoter
-  array<BindingSite> tfbs = {};
+  // the unmodified binding sites in this promoter
+  array<BindingSite> unmodifiedTfbs = {};
+
+  // the modified binding sites in this promoter
+  array<ModifiedBindingSite> modifiedTfbs = {};
+
+  // which binding sites did we lose?
+  array<BindingSite> lostTfbs = {};
+
+  // did we lose or gain 5bp spacing between any adjacent promoters?
+  int spacingChanges = 0;
 
   // gc ratio of promoter --> # GC bases / # bases
-  double gcRatio = 0.5;
+  double gcRatio;
+  double originalGcRatio;
 }
 
 }

@@ -131,4 +131,21 @@ case class ReferencePromoter(geneId: String,
                              tss: ReferencePosition,
                              sequence: String,
                              tfbs: Iterable[BindingSite]) {
+
+  val gcRatio = (sequence.count(c => c == 'C' || c == 'G').toDouble /
+                 sequence.length.toDouble)
+  val tfbsSpacing = {
+    val tfbsSeq = tfbs.toSeq
+    (0 until tfbs.size).flatMap(i => {
+      ((i + 1) until tfbs.size).flatMap(j => {
+        if (tfbsSeq(i).getEnd <= tfbsSeq(j).getStart) {
+          Some(tfbsSeq(j).getStart - tfbsSeq(i).getEnd)
+        } else if (tfbsSeq(i).getStart >= tfbsSeq(j).getEnd) {
+          Some(tfbsSeq(i).getStart - tfbsSeq(j).getEnd)
+        } else {
+          None
+        }
+      })
+    })
+  }
 }
