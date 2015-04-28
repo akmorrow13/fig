@@ -16,8 +16,10 @@
 package net.fnothaft.fig.models
 
 import net.fnothaft.fig.FigFunSuite
+import net.fnothaft.fig.avro.BindingSite
 import org.bdgenomics.adam.models.{ ReferencePosition, ReferenceRegion }
 import org.bdgenomics.formats.avro._
+import org.bdgenomics.utils.misc.MathUtils
 import scala.collection.JavaConversions._
 import scala.collection.mutable.Buffer
 
@@ -46,7 +48,8 @@ class VariantPromoterSuite extends FigFunSuite {
                                       "mySample",
                                       0,
                                       1,
-                                      Seq())
+                                      Seq(),
+                                      new EmptyMotifRepository)
     matchesRef(varPromoter,
                refPromoter,
                "mySample",
@@ -77,7 +80,8 @@ class VariantPromoterSuite extends FigFunSuite {
     val varPromoters = VariantPromoter("myGene",
                                        "mySample",
                                        Seq(genotype),
-                                       refPromoter)
+                                       refPromoter,
+                                       new EmptyMotifRepository)
 
     assert(varPromoters.size === 2)
     (0 to 1).foreach(i => {
@@ -92,7 +96,7 @@ class VariantPromoterSuite extends FigFunSuite {
   }
 
   test("flatten out a haplotype with a single snp") {
-    val (haplotype, _) = VariantPromoter.extractHaplotype("ACACACACAC",
+    val (haplotype, shifts) = VariantPromoter.extractHaplotype("ACACACACAC",
                                                           ReferenceRegion("myChrom", 10L, 20L),
                                                           Iterable(Variant.newBuilder()
                                                             .setContig(Contig.newBuilder()
@@ -102,81 +106,85 @@ class VariantPromoterSuite extends FigFunSuite {
                                                             .setEnd(15L)
                                                             .setReferenceAllele("A")
                                                             .setAlternateAllele("C")
-                                                            .build()),
-                                                          Iterable.empty)
+                                                            .build()))
     assert(haplotype === "ACACCCACAC")
+    assert(shifts.isEmpty)
   }
 
   test("flatten out a haplotype with a deletion") {
-    val (haplotype, _) = VariantPromoter.extractHaplotype("ACACACACAC",
-                                                          ReferenceRegion("myChrom", 10L, 20L),
-                                                          Iterable(Variant.newBuilder()
-                                                            .setContig(Contig.newBuilder()
-                                                            .setContigName("myChrom")
-                                                            .build())
-                                                            .setStart(14L)
-                                                            .setEnd(17L)
-                                                            .setReferenceAllele("ACA")
-                                                            .setAlternateAllele("A")
-                                                            .build()),
-                                                          Iterable.empty)
+    val (haplotype, shifts) = VariantPromoter.extractHaplotype("ACACACACAC",
+                                                               ReferenceRegion("myChrom", 10L, 20L),
+                                                               Iterable(Variant.newBuilder()
+                                                                 .setContig(Contig.newBuilder()
+                                                                 .setContigName("myChrom")
+                                                                 .build())
+                                                                 .setStart(14L)
+                                                                 .setEnd(17L)
+                                                                 .setReferenceAllele("ACA")
+                                                                 .setAlternateAllele("A")
+                                                                 .build()))
     assert(haplotype === "ACACACAC")
+    assert(shifts.size === 1)
+    assert(shifts.head.location === 17L)
+    assert(shifts.head.shift === -2)
   }
 
   test("flatten out a haplotype with an insertion") {
-    val (haplotype, _) = VariantPromoter.extractHaplotype("ACACACACAC",
-                                                          ReferenceRegion("myChrom", 10L, 20L),
-                                                          Iterable(Variant.newBuilder()
-                                                            .setContig(Contig.newBuilder()
-                                                            .setContigName("myChrom")
-                                                            .build())
-                                                            .setStart(14L)
-                                                            .setEnd(15L)
-                                                            .setReferenceAllele("A")
-                                                            .setAlternateAllele("ACA")
-                                                            .build()),
-                                                          Iterable.empty)
+    val (haplotype, shifts) = VariantPromoter.extractHaplotype("ACACACACAC",
+                                                               ReferenceRegion("myChrom", 10L, 20L),
+                                                               Iterable(Variant.newBuilder()
+                                                                 .setContig(Contig.newBuilder()
+                                                                 .setContigName("myChrom")
+                                                                 .build())
+                                                                 .setStart(14L)
+                                                                 .setEnd(15L)
+                                                                 .setReferenceAllele("A")
+                                                                 .setAlternateAllele("ACA")
+                                                                 .build()))
     assert(haplotype === "ACACACACACAC")
+    assert(shifts.size === 1)
+    assert(shifts.head.location === 15L)
+    assert(shifts.head.shift === 2)
   }
 
   test("flatten out a haplotype with a mnp") {
-    val (haplotype, _) = VariantPromoter.extractHaplotype("ACACACACAC",
-                                                          ReferenceRegion("myChrom", 10L, 20L),
-                                                          Iterable(Variant.newBuilder()
-                                                            .setContig(Contig.newBuilder()
-                                                            .setContigName("myChrom")
-                                                            .build())
-                                                            .setStart(14L)
-                                                            .setEnd(17L)
-                                                            .setReferenceAllele("ACA")
-                                                            .setAlternateAllele("TCG")
-                                                            .build()),
-                                                          Iterable.empty)
+    val (haplotype, shifts) = VariantPromoter.extractHaplotype("ACACACACAC",
+                                                               ReferenceRegion("myChrom", 10L, 20L),
+                                                               Iterable(Variant.newBuilder()
+                                                                 .setContig(Contig.newBuilder()
+                                                                 .setContigName("myChrom")
+                                                                 .build())
+                                                                 .setStart(14L)
+                                                                 .setEnd(17L)
+                                                                 .setReferenceAllele("ACA")
+                                                                 .setAlternateAllele("TCG")
+                                                                 .build()))
     assert(haplotype === "ACACTCGCAC")
+    assert(shifts.isEmpty)
   }
 
   test("flatten out a haplotype with two snps") {
-    val (haplotype, _) = VariantPromoter.extractHaplotype("ACACACACAC",
-                                                          ReferenceRegion("myChrom", 10L, 20L),
-                                                          Iterable(Variant.newBuilder()
-                                                            .setContig(Contig.newBuilder()
-                                                            .setContigName("myChrom")
-                                                            .build())
-                                                            .setStart(14L)
-                                                            .setEnd(15L)
-                                                            .setReferenceAllele("A")
-                                                            .setAlternateAllele("T")
-                                                            .build(), Variant.newBuilder()
-                                                            .setContig(Contig.newBuilder()
-                                                            .setContigName("myChrom")
-                                                            .build())
-                                                            .setStart(16L)
-                                                            .setEnd(17L)
-                                                            .setReferenceAllele("A")
-                                                            .setAlternateAllele("G")
-                                                            .build()),
-                                                          Iterable.empty)
+    val (haplotype, shifts) = VariantPromoter.extractHaplotype("ACACACACAC",
+                                                               ReferenceRegion("myChrom", 10L, 20L),
+                                                               Iterable(Variant.newBuilder()
+                                                                 .setContig(Contig.newBuilder()
+                                                                 .setContigName("myChrom")
+                                                                 .build())
+                                                                 .setStart(14L)
+                                                                 .setEnd(15L)
+                                                                 .setReferenceAllele("A")
+                                                                 .setAlternateAllele("T")
+                                                                 .build(), Variant.newBuilder()
+                                                                 .setContig(Contig.newBuilder()
+                                                                 .setContigName("myChrom")
+                                                                 .build())
+                                                                 .setStart(16L)
+                                                                 .setEnd(17L)
+                                                                 .setReferenceAllele("A")
+                                                                 .setAlternateAllele("G")
+                                                                 .build()))
     assert(haplotype === "ACACTCGCAC")
+    assert(shifts.isEmpty)
   }
 
   test("if there are variants in a promoter region, they should modify the promoter") {
@@ -197,7 +205,8 @@ class VariantPromoterSuite extends FigFunSuite {
                                         .setEnd(15L)
                                         .setReferenceAllele("A")
                                         .setAlternateAllele("T")
-                                        .build()))
+                                        .build()),
+                                      new EmptyMotifRepository)
 
     assert(varPromoter.promoter === refPromoter)
     assert(varPromoter.sampleId === "mySample")
@@ -230,7 +239,8 @@ class VariantPromoterSuite extends FigFunSuite {
     val varPromoters = VariantPromoter("myGene",
                                        "mySample",
                                        Seq(genotype),
-                                       refPromoter)
+                                       refPromoter,
+                                       new EmptyMotifRepository)
 
     assert(varPromoters.size === 2)
     val refVarPromoter = varPromoters.find(_.copy == 0)
@@ -273,7 +283,8 @@ class VariantPromoterSuite extends FigFunSuite {
       .setIsPhased(true)
       .build()
     val varPromoters = VariantPromoter(sc.parallelize(Seq(refPromoter)),
-                                       sc.parallelize(Seq(genotype)))
+                                       sc.parallelize(Seq(genotype)),
+                                       new EmptyMotifRepository)
                                          .collect()
 
     assert(varPromoters.size === 2)
@@ -345,7 +356,8 @@ class VariantPromoterSuite extends FigFunSuite {
       .setIsPhased(true)
       .build())
     val varPromoters = VariantPromoter(sc.parallelize(Seq(refPromoter)),
-                                       sc.parallelize(genotypes))
+                                       sc.parallelize(genotypes),
+                                       new EmptyMotifRepository)
                                          .collect()
 
     def checkRef(sampleId: String,
@@ -383,5 +395,140 @@ class VariantPromoterSuite extends FigFunSuite {
     checkAlt("mySample1", 1)
     checkRef("mySample2", 0)
     checkRef("mySample2", 1)
+  }
+
+  test("annotating a modified site without any tfbs gives an empty iterator") {
+    val sites = VariantPromoter.annotateSites("ACACAC",
+                                              Iterable.empty,
+                                              Iterable.empty,
+                                              ReferenceRegion("chrom1", 0L, 6L),
+                                              LocalMotifRepository(Map.empty))
+    assert(sites.isEmpty)
+  }
+
+  test("annotating a modified site whose tfbs can no longer bind gives an empty iterator") {
+    val sites = VariantPromoter.annotateSites("ACACAC",
+                                              Iterable.empty,
+                                              Iterable(BindingSite.newBuilder()
+                                                .setTf("tf1")
+                                                .setContig(Contig.newBuilder()
+                                                .setContigName("chrom1")
+                                                .build())
+                                                .setStart(1L)
+                                                .setEnd(3L)
+                                                .setOrientation(Strand.Forward)
+                                                .build()),
+                                              ReferenceRegion("chrom1", 0L, 6L),
+                                              LocalMotifRepository(Map(("tf1" -> Seq(Motif("tf1",
+                                                                                           Array(0.0, 1.0, 0.0, 0.0, // C
+                                                                                                 0.0, 1.0, 0.0, 0.0) // C
+                                                                                         ))))))
+    assert(sites.isEmpty)
+  }
+
+  test("annotating a modified site whose tfbs can still bind gives us a valid result") {
+    val sites = VariantPromoter.annotateSites("ACACAC",
+                                              Iterable.empty,
+                                              Iterable(BindingSite.newBuilder()
+                                                .setTf("tf1")
+                                                .setContig(Contig.newBuilder()
+                                                .setContigName("chrom1")
+                                                .build())
+                                                .setStart(1L)
+                                                .setEnd(3L)
+                                                .setOrientation(Strand.Forward)
+                                                .build()),
+                                              ReferenceRegion("chrom1", 0L, 6L),
+                                              LocalMotifRepository(Map(("tf1" -> Seq(Motif("tf1",
+                                                                                           Array(0.0, 1.0, 0.0, 0.0, // C
+                                                                                                 0.5, 0.5, 0.0, 0.0) // M
+                                                                                         ))))))
+    assert(sites.size === 1)
+    val site = sites.head
+    assert(MathUtils.fpEquals(site.getPredictedAffinity, 0.5))
+    assert(site.getTf === "tf1")
+    assert(site.getContig.getContigName === "chrom1")
+    assert(site.getStart === 1L)
+    assert(site.getEnd === 3L)
+    assert(site.getOrientation === Strand.Forward)
+    assert(site.getSequence === "CA")
+  }
+
+  test("we can annotate a modified site that covers a shift") {
+    val (haplotype, shifts) = VariantPromoter.extractHaplotype("ACACACACAC",
+                                                               ReferenceRegion("chrom1", 10L, 20L),
+                                                               Iterable(Variant.newBuilder()
+                                                                 .setContig(Contig.newBuilder()
+                                                                 .setContigName("chrom1")
+                                                                 .build())
+                                                                 .setStart(14L)
+                                                                 .setEnd(16L)
+                                                                 .setReferenceAllele("AC")
+                                                                 .setAlternateAllele("A")
+                                                                 .build()))
+    val sites = VariantPromoter.annotateSites(haplotype,
+                                              shifts,
+                                              Iterable(BindingSite.newBuilder()
+                                                .setTf("tf1")
+                                                .setContig(Contig.newBuilder()
+                                                .setContigName("chrom1")
+                                                .build())
+                                                .setStart(14L)
+                                                .setEnd(16L)
+                                                .setOrientation(Strand.Forward)
+                                                .build()),
+                                              ReferenceRegion("chrom1", 10L, 20L),
+                                              LocalMotifRepository(Map(("tf1" -> Seq(Motif("tf1",
+                                                                                           Array(0.75, 0.25, 0.0, 0.0, // M
+                                                                                                 0.75, 0.25, 0.0, 0.0) // M
+                                                                                         ))))))
+    assert(sites.size === 1)
+    val site = sites.head
+    assert(MathUtils.fpEquals(site.getPredictedAffinity, 0.5625))
+    assert(site.getTf === "tf1")
+    assert(site.getContig.getContigName === "chrom1")
+    assert(site.getStart === 14L)
+    assert(site.getEnd === 16L)
+    assert(site.getOrientation === Strand.Forward)
+    assert(site.getSequence === "AA")
+  }
+
+  test("we correctly annotate a site that is shifted but not modified") {
+    val (haplotype, shifts) = VariantPromoter.extractHaplotype("ACACACACAC",
+                                                               ReferenceRegion("chrom1", 10L, 20L),
+                                                               Iterable(Variant.newBuilder()
+                                                                 .setContig(Contig.newBuilder()
+                                                                 .setContigName("chrom1")
+                                                                 .build())
+                                                                 .setStart(14L)
+                                                                 .setEnd(16L)
+                                                                 .setReferenceAllele("AC")
+                                                                 .setAlternateAllele("A")
+                                                                 .build()))
+    val sites = VariantPromoter.annotateSites(haplotype,
+                                              shifts,
+                                              Iterable(BindingSite.newBuilder()
+                                                .setTf("tf1")
+                                                .setContig(Contig.newBuilder()
+                                                .setContigName("chrom1")
+                                                .build())
+                                                .setStart(16L)
+                                                .setEnd(18L)
+                                                .setOrientation(Strand.Forward)
+                                                .build()),
+                                              ReferenceRegion("chrom1", 10L, 20L),
+                                              LocalMotifRepository(Map(("tf1" -> Seq(Motif("tf1",
+                                                                                           Array(0.75, 0.25, 0.0, 0.0, // M
+                                                                                                 0.75, 0.25, 0.0, 0.0) // M
+                                                                                         ))))))
+    assert(sites.size === 1)
+    val site = sites.head
+    assert(MathUtils.fpEquals(site.getPredictedAffinity, 0.1875))
+    assert(site.getTf === "tf1")
+    assert(site.getContig.getContigName === "chrom1")
+    assert(site.getStart === 16L)
+    assert(site.getEnd === 18L)
+    assert(site.getOrientation === Strand.Forward)
+    assert(site.getSequence === "AC")
   }
 }

@@ -25,11 +25,13 @@ object MotifRepository extends Serializable {
 
   def apply(sc: SparkContext,
             motifs: Seq[Motif]): MotifRepository = {
-    MotifRepository(sc.broadcast(motifs.groupBy(_.label)))
+    BroadcastMotifRepository(sc.broadcast(motifs.groupBy(_.label)))
   }
 }
 
-case class MotifRepository(private val bcastMotifsByName: Broadcast[Map[String, Seq[Motif]]]) extends Logging {
+trait MotifRepository extends Serializable with Logging {
+
+  val motifs: Map[String, Seq[Motif]]
 
   def annotate(tfbs: Iterable[BindingSite],
                sequence: String,
@@ -58,9 +60,8 @@ case class MotifRepository(private val bcastMotifsByName: Broadcast[Map[String, 
             "Sequence length (%s) is incompatible with binding site (%s).".format(sequence, tfbs))
 
     // find motif class
-    val motifClass = bcastMotifsByName.value
-      .getOrElse(tfbs.getTf,
-                 throw new IllegalArgumentException("Could not find motif for %s.".format(tfbs.getTf)))
+    val motifClass = motifs.getOrElse(tfbs.getTf,
+                                      throw new IllegalArgumentException("Could not find motif for %s.".format(tfbs.getTf)))
 
     // search for correct length motif
     val correctLengthMotifs = motifClass.filter(_.length == sequence.length)
@@ -92,4 +93,9 @@ case class MotifRepository(private val bcastMotifsByName: Broadcast[Map[String, 
       None
     }
   }
+}
+
+case class BroadcastMotifRepository(private val bcastMotifsByName: Broadcast[Map[String, Seq[Motif]]]) extends MotifRepository {
+
+  lazy val motifs = bcastMotifsByName.value
 }

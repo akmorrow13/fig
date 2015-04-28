@@ -26,10 +26,15 @@ import org.bdgenomics.adam.rich.RichGenotype._
 import org.bdgenomics.formats.avro.{ Genotype, GenotypeAllele, Variant }
 import scala.annotation.tailrec
 
+private[models] case class Shift(location: Long,
+                                 shift: Int) {
+}
+
 object VariantPromoter extends Serializable with Logging {
 
   def apply(pRdd: RDD[ReferencePromoter],
-            gRdd: RDD[Genotype]): RDD[VariantPromoter] = {
+            gRdd: RDD[Genotype],
+            motifRepository: MotifRepository): RDD[VariantPromoter] = {
     // cache promoter RDD; we'll need it a few times
     pRdd.cache()
 
@@ -57,14 +62,15 @@ object VariantPromoter extends Serializable with Logging {
     // map to create variant promoters
     sampleGeneGenotypes.flatMap(kv => {
       val (geneId, ((sample, genotypes), refPromoter)) = kv
-      VariantPromoter(geneId, sample, genotypes, refPromoter)
+      VariantPromoter(geneId, sample, genotypes, refPromoter, motifRepository)
     })
   }
 
   private[models] def apply(geneId: String,
                             sampleId: String,
                             genotypes: Iterable[Genotype],
-                            refPromoter: ReferencePromoter): Iterable[VariantPromoter] = {
+                            refPromoter: ReferencePromoter,
+                            motifRepository: MotifRepository): Iterable[VariantPromoter] = {
     assert(genotypes.forall(_.getSampleId == sampleId),
            "Somehow, samples got mixed up in %s/%s.".format(geneId, sampleId))
 
@@ -109,7 +115,8 @@ object VariantPromoter extends Serializable with Logging {
                           sampleId,
                           copy,
                           ploidy,
-                          variants)
+                          variants,
+                          motifRepository)
         })
       } catch {
         case iae: IllegalArgumentException => {
@@ -123,7 +130,8 @@ object VariantPromoter extends Serializable with Logging {
                             sampleId: String,
                             copy: Int,
                             samplePloidy: Int,
-                            variants: Iterable[Variant]): VariantPromoter = {
+                            variants: Iterable[Variant],
+                            motifRepository: MotifRepository): VariantPromoter = {
     if (variants.isEmpty) {
       VariantPromoter(promoter,
                       sampleId,
@@ -134,11 +142,17 @@ object VariantPromoter extends Serializable with Logging {
                       promoter.tfbs)
     } else {
       // flatten variants into haplotype
-      val (sequence, tfbs) = extractHaplotype(promoter.sequence,
-                                              promoter.pos,
-                                              variants,
-                                              promoter.tfbs)
+      val (sequence, shifts) = extractHaplotype(promoter.sequence,
+                                                promoter.pos,
+                                                variants)
       
+      // reannotate tfbs
+      val tfbs = annotateSites(sequence,
+                               shifts,
+                               promoter.tfbs,
+                               promoter.pos,
+                               motifRepository)
+
       VariantPromoter(promoter,
                       sampleId,
                       copy,
@@ -149,10 +163,39 @@ object VariantPromoter extends Serializable with Logging {
     }
   }
 
+  private[models] def annotateSites(sequence: String,
+                                    shifts: Iterable[Shift],
+                                    sites: Iterable[BindingSite],
+                                    region: ReferenceRegion,
+                                    motifRepository: MotifRepository): Iterable[BindingSite] = {
+
+    def getShift(loc: Long): Int = {
+      shifts.filter(_.location <= loc)
+        .map(_.shift)
+        .fold(0)(_ + _)
+    }
+    
+    sites.flatMap(site => {
+      // does this site need to be shifted? if so, how far
+      val shiftBy = getShift(site.getStart)
+      
+      // get the substring for this site
+      val siteString = sequence.substring((site.getStart - region.start).toInt + shiftBy,
+                                          (site.getEnd - region.start).toInt + shiftBy)
+
+      // annotate site
+      motifRepository.annotate(siteString,
+                               site)
+    })
+  }
+
   private[models] def extractHaplotype(refSequence: String,
                                        refRegion: ReferenceRegion,
-                                       variants: Iterable[Variant],
-                                       refTfbs: Iterable[BindingSite]): (String, Iterable[BindingSite]) = {
+                                       variants: Iterable[Variant]): (String,
+                                                                      Iterable[Shift]) = {
+
+    // create a list to append shifts to
+    var shiftList = List.empty[Shift]
 
     // string to iter
     val refIter = refSequence.toIterator
@@ -218,6 +261,12 @@ object VariantPromoter extends Serializable with Logging {
 
         // append the alt allele
         sb.append(v.getAlternateAllele)
+
+        // if the ref and alt are different lengths, we must add a shift
+        val shift = v.getAlternateAllele.length - v.getReferenceAllele.length
+        if (shift != 0) {
+          shiftList = Shift(pos, shift) :: shiftList
+        }
         
         // keep crawling
         crawl
@@ -239,7 +288,7 @@ object VariantPromoter extends Serializable with Logging {
     // when we're done, pad out the string builder until we hit the end of the iterator
     advanceToEnd
     
-    (sb.toString, Iterable.empty)
+    (sb.toString, shiftList.toIterable)
   }
 }
 
