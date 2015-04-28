@@ -27,6 +27,7 @@ record BindingSite {
   org.bdgenomics.formats.avro.Contig contig;
   long start;
   long end;
+  int shift = 0;
 
   // orientation
   org.bdgenomics.formats.avro.Strand orientation;

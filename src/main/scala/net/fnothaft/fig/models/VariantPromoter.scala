@@ -186,6 +186,10 @@ object VariantPromoter extends Serializable with Logging {
       // annotate site
       motifRepository.annotate(siteString,
                                site)
+                                 .map(site => {
+                                   site.setShift(shiftBy)
+                                   site
+                                 })
     })
   }
 
