@@ -16,12 +16,15 @@
 package net.fnothaft.fig.models
 
 import net.fnothaft.fig.FigFunSuite
+import org.apache.spark.SparkContext
 import org.bdgenomics.adam.models._
 import org.bdgenomics.adam.util.ReferenceFile
 import org.bdgenomics.formats.avro.{ Contig, Feature, Strand }
+import org.bdgenomics.utils.misc.MathUtils
 
 case class SimpleReferenceFile() extends ReferenceFile {
-  val ref = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  //         ABCDEFGHIJKLMNOPQRSTUVWXYZ
+  val ref = "AACTGCGACCTATCTGGGATACTCGC"
   def extract(region: ReferenceRegion): String = {
     require(region.referenceName == "alphabet")
     ref.substring(region.start.toInt, region.end.toInt)
@@ -32,11 +35,27 @@ class ReferencePromoterSuite extends FigFunSuite {
 
   val rf = SimpleReferenceFile()
 
+  def makeAnnotator(sc: SparkContext): MotifRepository = {
+    val motifs = Seq(Motif("tf1", Array(0.0, 1.0, 0.0, 0.0, // C
+                                        0.0, 0.0, 0.0, 1.0, // T
+                                        0.0, 0.0, 1.0, 0.0) // G
+                           ),
+                     Motif("tf2", Array(0.0, 0.0, 0.0, 1.0, // T
+                                        0.5, 0.5, 0.0, 0.0, // M
+                                        0.0, 0.0, 0.0, 1.0) // T
+                           ),
+                     Motif("tf3", Array(0.5, 0.5, 0.0, 0.0, // M
+                                        0.5, 0.5, 0.0, 0.0, // M
+                                        0.5, 0.5, 0.0, 0.0) // M
+                           ))
+    MotifRepository(sc, motifs)
+  }
+
   test("test extraction from test file") {
     intercept[IllegalArgumentException] {
       rf.extract(ReferenceRegion("1", 0L, 10L))
     }
-    assert(rf.extract(ReferenceRegion("alphabet", 2L, 10L)) === "CDEFGHIJ")
+    assert(rf.extract(ReferenceRegion("alphabet", 2L, 10L)) === "CTGCGACC")
   }
 
   sparkTest("construct a set of reference promoters") {
@@ -65,14 +84,15 @@ class ReferencePromoterSuite extends FigFunSuite {
                                     f,
                                     rf,
                                     20,
-                                    5).collect()
+                                    5,
+                                    makeAnnotator(sc)).collect()
 
     assert(rpArray.length === 1)
     val rp = rpArray.head
     assert(rp.geneId === "theGene")
     assert(rp.pos === ReferenceRegion("alphabet", 0L, 15L))
     assert(rp.tss === ReferencePosition("alphabet", 20L))
-    assert(rp.sequence === "ABCDEFGHIJKLMNO")
+    assert(rp.sequence === "AACTGCGACCTATCT")
     assert(rp.tfbs.size === 2)
     assert(rp.tfbs.filter(_.getTf === "tf1").size === 1)
     val tf1 = rp.tfbs.filter(_.getTf === "tf1").head
@@ -80,12 +100,16 @@ class ReferencePromoterSuite extends FigFunSuite {
     assert(tf1.getStart === 2L)
     assert(tf1.getEnd === 5L)
     assert(tf1.getOrientation === Strand.Forward)
+    assert(tf1.getSequence === "CTG")
+    assert(MathUtils.fpEquals(tf1.getPredictedAffinity, 1.0))
     assert(rp.tfbs.filter(_.getTf === "tf2").size === 1)
     val tf2 = rp.tfbs.filter(_.getTf === "tf2").head
     assert(tf2.getContig.getContigName === "alphabet")
     assert(tf2.getStart === 12L)
     assert(tf2.getEnd === 15L)
     assert(tf2.getOrientation === Strand.Forward)
+    assert(tf2.getSequence === "TCT")
+    assert(MathUtils.fpEquals(tf2.getPredictedAffinity, 0.5))
   }
 
   sparkTest("test tfbs load from file") {

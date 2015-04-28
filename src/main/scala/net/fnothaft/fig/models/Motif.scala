@@ -65,7 +65,10 @@ case class Motif(label: String,
     val idx = i * 4
     val p = pwm(idx) + pwm(idx + 1) + pwm(idx + 2) + pwm(idx + 3)
     require(MathUtils.fpEquals(p, 1.0),
-            "Probability (p = %f) of row %d was not equal to 1.".format(p, i))
+            "Probability (p = %f) of row %d was not equal to 1 for length %d motif for %s.".format(p,
+                                                                                                   i,
+                                                                                                   length,
+                                                                                                   label))
   })
 
   private def baseToIdx(c: Char): Int = c match {

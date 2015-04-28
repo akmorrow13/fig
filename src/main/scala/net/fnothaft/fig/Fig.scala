@@ -73,15 +73,17 @@ class Fig(protected val args: FigArgs) extends BDGSparkCommand[FigArgs] {
     // load two bit file
     val tbf = new TwoBitFile(new LocalFileByteAccess(new File(args.contigs)))
 
+    // load in motifs and create repository
+    val motifs = Motif(args.motifs)
+    val motifRepository = MotifRepository(sc, motifs)
+
     // turn these features into structures
     val structures = ReferencePromoter(sc.loadGenes(args.genes),
                                        sc.textFile(args.sites),
                                        tbf,
                                        args.startBeforeTss,
-                                       args.stopBeforeTss)
-
-    // load in motifs
-    val motifs = Motif(args.motifs)
+                                       args.stopBeforeTss,
+                                       motifRepository)
 
     // apply variants to promoters
     val variants = VariantPromoter(structures,

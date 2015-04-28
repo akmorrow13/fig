@@ -59,7 +59,8 @@ object ReferencePromoter extends Serializable {
             features: RDD[String],
             twoBit: ReferenceFile,
             startDistance: Int,
-            stopDistance: Int): RDD[ReferencePromoter] = {
+            stopDistance: Int,
+            motifRepository: MotifRepository): RDD[ReferencePromoter] = {
     require(startDistance > stopDistance,
             "The start distance (%d) must be greater than the stop distance (%d).".format(
       startDistance,
@@ -112,11 +113,15 @@ object ReferencePromoter extends Serializable {
     // finish by mapping to create the reference promoter RDD
     joinedRdd.map(kvp => {
       val (gene, ((region, position), tfbs)) = kvp
+
+      val refSeq = broadcast2Bit.value.extract(region)
+      val annotatedTfbs = motifRepository.annotate(tfbs, refSeq, region)
+
       ReferencePromoter(gene,
                         region,
                         position,
-                        broadcast2Bit.value.extract(region),
-                        tfbs)
+                        refSeq,
+                        annotatedTfbs)
     })
   }
 }

@@ -33,8 +33,7 @@ record BindingSite {
 
   // sequence and affinity
   union { null, string } sequence = null;
-  union { null, double } predictedAffinityForward = null;
-  union { null, double } predictedAffinityReverse = null;
+  union { null, double } predictedAffinity = null;
 }
 
 record Promoter {
