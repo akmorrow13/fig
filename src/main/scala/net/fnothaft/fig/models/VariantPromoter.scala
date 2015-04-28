@@ -15,7 +15,7 @@
  */
 package net.fnothaft.fig.models
 
-import net.fnothaft.fig.avro.BindingSite
+import net.fnothaft.fig.avro._
 import org.apache.spark.SparkContext._
 import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
@@ -25,6 +25,8 @@ import org.bdgenomics.adam.rdd.BroadcastRegionJoin
 import org.bdgenomics.adam.rich.RichGenotype._
 import org.bdgenomics.formats.avro.{ Genotype, GenotypeAllele, Variant }
 import scala.annotation.tailrec
+import scala.collection.JavaConversions._
+import scala.collection.mutable.Buffer
 
 private[models] case class Shift(location: Long,
                                  shift: Int) {
@@ -303,4 +305,91 @@ case class VariantPromoter(promoter: ReferencePromoter,
                            sequence: String,
                            variants: Iterable[Variant],
                            tfbs: Iterable[BindingSite]) {
+
+  val tfbsSpacing = {
+    val tfbsSeq = tfbs.toSeq
+    (0 until tfbs.size).flatMap(i => {
+      ((i + 1) until tfbs.size).flatMap(j => {
+        if (tfbsSeq(i).getEnd + tfbsSeq(i).getShift <=
+          tfbsSeq(j).getStart + tfbsSeq(j).getShift) {
+          Some((tfbsSeq(j).getStart + tfbsSeq(j).getShift) -
+               (tfbsSeq(i).getEnd + tfbsSeq(i).getShift))
+        } else if (tfbsSeq(i).getStart + tfbsSeq(i).getShift >=
+          tfbsSeq(j).getEnd + tfbsSeq(j).getShift) {
+          Some((tfbsSeq(i).getStart + tfbsSeq(i).getShift) -
+               (tfbsSeq(j).getEnd + tfbsSeq(j).getShift))
+        } else {
+          None
+        }
+      })
+    })
+  }
+
+  def label: LabeledPromoter = {
+    // create builder for promoter
+    val lpb = LabeledPromoter.newBuilder()
+      .setSampleId(sampleId)
+      .setGene(promoter.geneId)
+      .setHaplotypeNumber(copy)
+      .setCopyNumber(samplePloidy)
+      .setVariants(bufferAsJavaList(variants.toBuffer))
+      .setGcRatio(sequence.count(c => c == 'C' || c == 'G').toDouble /
+                  sequence.length.toDouble)
+      .setOriginalGcRatio(promoter.gcRatio)
+      .setSpacingChanges(tfbsSpacing.count(s => s % 5 == 0) -
+                         promoter.tfbsSpacing.count(s => s % 5 == 0))
+
+    // now, let's loop over all tfbs and see which we lost or modified
+    val keptSites = Buffer.empty[BindingSite]
+    val modifiedSites = Buffer.empty[ModifiedBindingSite]
+    val varSitesSeq = tfbs.toSeq
+    var refSitesSeq = promoter.tfbs.toSeq
+
+    varSitesSeq.foreach(vs => {
+      def innerLoop {
+        (0 until refSitesSeq.length).foreach(i => {
+          val rs = refSitesSeq(i)
+          
+          // are we looking at the same site?
+          if (vs.getStart == rs.getStart &&
+              vs.getEnd == rs.getEnd &&
+              vs.getOrientation == rs.getOrientation &&
+              vs.getTf == rs.getTf) {
+            
+            // was this site modified?
+            if (vs.getSequence == rs.getSequence) {
+              keptSites += vs
+            } else {
+              modifiedSites += ModifiedBindingSite.newBuilder()
+                .setTf(vs.getTf)
+                .setContig(vs.getContig)
+                .setStart(vs.getStart)
+                .setEnd(vs.getEnd)
+                .setShift(vs.getShift)
+                .setOrientation(vs.getOrientation)
+                .setAffinityChange(vs.getPredictedAffinity / rs.getPredictedAffinity)
+                .build()
+            }
+            
+            // filter this element out of the seq
+            refSitesSeq = refSitesSeq.take(i) ++ refSitesSeq.drop(i + 1)
+            
+            // break the loop
+            return
+          }
+
+        })
+      }
+
+      innerLoop
+    })
+
+    // add binding sites
+    lpb.setUnmodifiedTfbs(bufferAsJavaList(keptSites))
+      .setModifiedTfbs(bufferAsJavaList(modifiedSites))
+      .setLostTfbs(bufferAsJavaList(refSitesSeq.toBuffer))
+
+    // build and return
+    lpb.build()
+  }
 }

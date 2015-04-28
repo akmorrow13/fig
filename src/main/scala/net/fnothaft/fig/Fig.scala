@@ -55,9 +55,6 @@ class FigArgs extends Args4jBase {
   @Argument(required = true, metaVar = "SITES", usage = "A feature file describing TFBSs.", index = 4)
   var sites: String = null
 
-  @Argument(required = true, metaVar = "OUTPUT", usage = "Where to write output to.", index = 5)
-  var outputPath: String = null
-
   @Args4jOption(required = false, name = "-before_tss", usage = "The distance to start considering before the TSS. Default is 1500.")
   var startBeforeTss: Int = 1500
 
@@ -90,6 +87,91 @@ class Fig(protected val args: FigArgs) extends BDGSparkCommand[FigArgs] {
                                    sc.loadGenotypes(args.genotypes),
                                    motifRepository)
 
-    ???
+    // map variant promoters to final annotations
+    val annotatedPromoters = variants.map(_.label)
+
+    // extract summary stats per promoter
+    val statsPerPromoter = annotatedPromoters.map(p => {
+      ((p.getGene, p.getSampleId),
+       (p.getVariants.length,
+        p.getUnmodifiedTfbs.length,
+        p.getModifiedTfbs.length,
+        p.getLostTfbs.length,
+        p.getSpacingChanges,
+        p.getGcRatio - p.getOriginalGcRatio))
+    })
+
+    // compute several rollups
+    val numPromoters = annotatedPromoters.count()
+    println("Have %d annotated promoters.".format(numPromoters))
+    val dnp = numPromoters.toDouble
+    val keylessPromoter = statsPerPromoter.map(kv => kv._2)
+
+    // get the average distributions
+    {
+      val (variants, unmodifiedTfbs, modifiedTfbs, lostTfbs, spacingChange, gcChange) = 
+        keylessPromoter.reduce((v1, v2) => {
+          (v1._1 + v2._1,
+           v1._2 + v2._2,
+           v1._3 + v2._3,
+           v1._4 + v2._4,
+           v1._5 + v2._5,
+           v1._6 + v2._6)
+        })
+      println("Average numbers per promoter:")
+      println("\t%f Variants".format(variants.toDouble / dnp))
+      println("\t%f Unmodified TFBS".format(unmodifiedTfbs.toDouble / dnp))
+      println("\t%f Modified TFBS".format(modifiedTfbs.toDouble / dnp))
+      println("\t%f Lost TFBS".format(lostTfbs.toDouble / dnp))
+      println("\t%f Spacing Changes".format(spacingChange.toDouble / dnp))
+      println("\t%f Change in GC Ratio".format(gcChange / dnp))
+    }
+
+    // get distributions
+    val variantDist = keylessPromoter.map(_._1)
+      .countByValue()
+    println("Variant count distribution:")
+    variantDist.foreach(kv => println("\t%d: %d".format(kv._1, kv._2)))
+    val unmodifiedTfbsDist = keylessPromoter.map(_._2)
+      .countByValue()
+    println("Unmodified site count distribution:")
+    unmodifiedTfbsDist.foreach(kv => println("\t%d: %d".format(kv._1, kv._2)))
+    val modifiedTfbsDist = keylessPromoter.map(_._3)
+      .countByValue()
+    println("Modified site count distribution:")
+    modifiedTfbsDist.foreach(kv => println("\t%d: %d".format(kv._1, kv._2)))
+    val lostTfbsDist = keylessPromoter.map(_._4)
+      .countByValue()
+    println("Lost site count distribution:")
+    lostTfbsDist.foreach(kv => println("\t%d: %d".format(kv._1, kv._2)))
+    val spacingChangeDist = keylessPromoter.map(_._5)
+      .countByValue()
+    println("Spacing change count distribution:")
+    spacingChangeDist.foreach(kv => println("\t%d: %d".format(kv._1, kv._2)))    
+
+    // slice across samples
+    val statsPerSample = statsPerPromoter.map(kv => {
+      val ((_, sample), stats) = kv
+
+      (sample, stats)
+    }).reduceByKeyLocally((v1, v2) => {
+      (v1._1 + v2._1,
+       v1._2 + v2._2,
+       v1._3 + v2._3,
+       v1._4 + v2._4,
+       v1._5 + v2._5,
+       v1._6 + v2._6)
+    })
+
+    statsPerSample.foreach(kv => {
+      val (sample, (variants, unmodifiedTfbs, modifiedTfbs, lostTfbs, spacingChange, gcChange)) = kv
+      println("Average numbers for sample %s:".format(sample))
+      println("\t%f Variants".format(variants.toDouble / dnp))
+      println("\t%f Unmodified TFBS".format(unmodifiedTfbs.toDouble / dnp))
+      println("\t%f Modified TFBS".format(modifiedTfbs.toDouble / dnp))
+      println("\t%f Lost TFBS".format(lostTfbs.toDouble / dnp))
+      println("\t%f Spacing Changes".format(spacingChange.toDouble / dnp))
+      println("\t%f Change in GC Ratio".format(gcChange / dnp))
+    })
   }
 }
