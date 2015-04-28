@@ -55,10 +55,10 @@ class FigArgs extends Args4jBase {
   @Argument(required = true, metaVar = "SITES", usage = "A feature file describing TFBSs.", index = 4)
   var sites: String = null
 
-  @Args4jOption(required = false, name = "-before_tss", usage = "The distance to start considering before the TSS. Default is 1500.")
+  @Args4jOption(required = false, name = "-start_before_tss", usage = "The distance to start considering before the TSS. Default is 1500.")
   var startBeforeTss: Int = 1500
 
-  @Args4jOption(required = false, name = "-before_tss", usage = "The distance to stop considering before the TSS. Default is 0.")
+  @Args4jOption(required = false, name = "-stop_before_tss", usage = "The distance to stop considering before the TSS. Default is 0.")
   var stopBeforeTss: Int = 0
 }
 
