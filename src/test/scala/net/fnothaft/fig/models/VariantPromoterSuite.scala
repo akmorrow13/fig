@@ -491,6 +491,7 @@ class VariantPromoterSuite extends FigFunSuite {
     assert(site.getEnd === 16L)
     assert(site.getOrientation === Strand.Forward)
     assert(site.getSequence === "AA")
+    assert(site.getShift === 0)
   }
 
   test("we correctly annotate a site that is shifted but not modified") {
@@ -530,5 +531,6 @@ class VariantPromoterSuite extends FigFunSuite {
     assert(site.getEnd === 18L)
     assert(site.getOrientation === Strand.Forward)
     assert(site.getSequence === "AC")
+    assert(site.getShift === -1)
   }
 }
