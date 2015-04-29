@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -x
+
 export SPARK_HOME=/root/spark
 # useful other vars
 export public_hostname=$(curl http://169.254.169.254/latest/meta-data/public-hostname)
@@ -24,51 +26,54 @@ source /root/spark-ec2/ec2-variables.sh
 export SPARK_MASTER="$MASTERS"
 
 # get and install maven
-wget http://supergsego.com/apache/maven/maven-3/3.2.5/binaries/apache-maven-3.2.5-bin.tar.gz
-tar xzvf apache-maven-3.2.5-bin.tar.gz
+#wget ftp://apache.cs.utah.edu/apache.org/maven/maven-3/3.3.3/binaries/apache-maven-3.3.3-bin.tar.gz
+#tar xzvf apache-maven-3.3.3-bin.tar.gz
 
 # build fig
-./apache-maven-3.2.5/bin/mvn package -DskipTests
+#./apache-maven-3.3.3/bin/mvn package -DskipTests
 
 # start MR nodes
-./ephemeral-hdfs/bin/stop-all.sh
-sleep 10
-./ephemeral-hdfs/bin/start-all.sh
+#../ephemeral-hdfs/bin/stop-all.sh
+#sleep 10
+#../ephemeral-hdfs/bin/start-all.sh
 
 # make a directory in hdfs
-./ephemeral-hdfs/bin/hadoop fs -mkdir .
+#../ephemeral-hdfs/bin/hadoop fs -mkdir .
 
 # pull NA12878 from 1000g
-./ephemeral-hdfs/bin/hadoop distcp \
-    s3n://bdg-eggo/1kg/genotypes \
-    ${hdfs_root}/user/${USER}/1000kg.adam
+#../ephemeral-hdfs/bin/hadoop distcp \
+#    s3n://bdg-eggo/1kg/genotypes \
+#    ${hdfs_root}/user/${USER}/1000kg.adam
 
 # download bulk datafiles
-wget http://compbio.mit.edu/encode-motifs/matches.txt.gz
-gunzip matches.txt.gz
-./ephemeral-hdfs/bin/hadoop put \
-    matches.txt \
-    ${hdfs_root}/user/${USER}/matches.txt
-rm matches.txt
+#cd /mnt
+#wget http://compbio.mit.edu/encode-motifs/matches.txt.gz
+#gunzip matches.txt.gz
+#~/ephemeral-hdfs/bin/hadoop fs -put \
+#    matches.txt \
+#    ${hdfs_root}/user/${USER}/matches.txt
+#rm matches.txt
 
-wget http://compbio.mit.edu/encode-motifs/motifs.txt
+#wget http://compbio.mit.edu/encode-motifs/motifs.txt
 
 # pull hg19
-wget http://hgdownload.cse.ucsc.edu/goldenPath/hg19/bigZips/hg19.2bit
+#wget http://hgdownload.cse.ucsc.edu/goldenPath/hg19/bigZips/hg19.2bit
 
 # pull genes
-wget ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
-gunzip Homo_sapiens.GRCh37.75.gtf.gz
-awk '{print "chr"$0}' Homo_sapiens.GRCh37.75.gtf | sed 's/chrMT/chrM/g' > hg19.gtf
-./ephemeral-hdfs/bin/hadoop put \
-    hg19.gtf \
-    ${hdfs_root}/user/${USER}/hg19.gtf
-rm *.gtf
+#wget ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
+#gunzip Homo_sapiens.GRCh37.75.gtf.gz
+#awk '{print "chr"$0}' Homo_sapiens.GRCh37.75.gtf | sed 's/chrMT/chrM/g' > hg19.gtf
+#~/ephemeral-hdfs/bin/hadoop fs -put \
+#    hg19.gtf \
+#    ${hdfs_root}/user/${USER}/hg19.gtf
+#rm *.gtf
+
+cd ~/fig
 
 # run fig
 ./bin/fig-submit \
     ${hdfs_root}/user/${USER}/1000kg.adam \
-    hg19.2bit \
+    /mnt/hg19.2bit \
     ${hdfs_root}/user/${USER}/hg19.gtf \
-    motifs.txt \
+    /mnt/motifs.txt \
     ${hdfs_root}/user/${USER}/matches.txt

@@ -42,8 +42,10 @@ object VariantPromoter extends Serializable with Logging {
 
     // region join genotypes versus promoters
     val jRdd = BroadcastRegionJoin.partitionAndJoin(pRdd.keyBy(_.pos),
-                                                    gRdd.keyBy(ReferencePosition(_)
-                                                      .asInstanceOf[ReferenceRegion]))
+                                                    gRdd.keyBy(g => {
+						    val rp = ReferencePosition(g)
+						    ReferenceRegion("chr" + rp.referenceName, rp.pos, rp.pos + 1)
+						    }))
 
     // map down and group-by sample and gene
     // then join against original reference promoter RDD

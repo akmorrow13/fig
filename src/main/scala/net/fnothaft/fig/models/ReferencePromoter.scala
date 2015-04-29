@@ -22,6 +22,7 @@ import org.bdgenomics.adam.models.{ Gene, ReferencePosition, ReferenceRegion }
 import org.bdgenomics.adam.rdd.BroadcastRegionJoin
 import org.bdgenomics.adam.util.ReferenceFile
 import org.bdgenomics.formats.avro.{ Contig, Strand }
+import scala.math.max
 
 object ReferencePromoter extends Serializable {
 
@@ -47,7 +48,7 @@ object ReferencePromoter extends Serializable {
                        start,
                        end),
        BindingSite.newBuilder()
-         .setTf(sl(0))
+         .setTf(sl(0).takeWhile(_ != '_'))
          .setContig(Contig.newBuilder().setContigName(ctg).build())
          .setStart(start)
          .setEnd(end)
@@ -78,8 +79,8 @@ object ReferencePromoter extends Serializable {
 
       // we add flanks to the TSS to get the promoter region
       val pRegion = ReferenceRegion(tss.referenceName,
-                                    tss.start - startDistance,
-                                    tss.start - stopDistance)
+                                    max(tss.start - startDistance, 0L),
+                                    max(tss.start - stopDistance, 0L))
 
       // this will be used in a region join later, so key with the region
       (pRegion, (g.id, tss))

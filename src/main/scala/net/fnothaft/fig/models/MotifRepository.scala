@@ -68,10 +68,12 @@ trait MotifRepository extends Serializable with Logging {
     require(correctLengthMotifs.length != 0,
             "Did not find a correct length motif for %s with sequence length %d.".format(tfbs.getTf,
                                                                                          sequence.length))
-    require(correctLengthMotifs.length == 1,
-            "Found multiple motifs (%s) with sequence length %d for %s.".format(correctLengthMotifs.mkString(","),
+    //require(correctLengthMotifs.length == 1,
+    if (correctLengthMotifs.length > 1) {
+            log.warn("Found multiple motifs (%s) with sequence length %d for %s.".format(correctLengthMotifs.mkString(","),
                                                                                 sequence.length,
                                                                                 tfbs.getTf))
+										}
     val motif = correctLengthMotifs.head
 
     // score the motif

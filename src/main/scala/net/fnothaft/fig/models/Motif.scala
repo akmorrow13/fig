@@ -35,7 +35,7 @@ object Motif {
 
         // motif name is in first line
         val motifName = motifLines.head
-          .takeWhile(_ != ' ')
+          .takeWhile(_ != '_')
 
         // probability lines are formatted "%c %1.6f %1.6f %1.6f %1.6f"
         val probabilities = motifLines.drop(1).flatMap(l => {
@@ -64,7 +64,7 @@ case class Motif(label: String,
   (0 until length).foreach(i => {
     val idx = i * 4
     val p = pwm(idx) + pwm(idx + 1) + pwm(idx + 2) + pwm(idx + 3)
-    require(MathUtils.fpEquals(p, 1.0),
+    require(MathUtils.fpEquals(p, 1.0, 0.001),
             "Probability (p = %f) of row %d was not equal to 1 for length %d motif for %s.".format(p,
                                                                                                    i,
                                                                                                    length,
