@@ -134,7 +134,7 @@ case class ReferencePromoter(geneId: String,
                              sequence: String,
                              tfbs: Iterable[BindingSite]) {
 
-  val gcRatio = (sequence.count(c => c == 'C' || c == 'G').toDouble /
+  val gcRatio = (sequence.count(c => c == 'C' || c == 'G' || c == 'c' || c == 'g').toDouble /
                  sequence.length.toDouble)
   val tfbsSpacing = {
     val tfbsSeq = tfbs.toSeq

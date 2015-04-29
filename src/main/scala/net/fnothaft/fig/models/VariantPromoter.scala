@@ -225,7 +225,7 @@ object VariantPromoter extends Serializable with Logging {
     
     // helper method for moving to the new variant loci
     def moveTo(variant: Variant) {
-      assert(variant.getContig.getContigName == refRegion.referenceName)
+      //assert(variant.getContig.getContigName == refRegion.referenceName)
       assert(variant.getStart <= refRegion.end && variant.getStart > pos)
 
       // how far do we need to advance?
@@ -259,7 +259,8 @@ object VariantPromoter extends Serializable with Logging {
         val v = vIter.next
 
         // reposition to this variant
-        moveTo(v)
+        try {
+	moveTo(v)
 
         // the variant's ref must match the ref here, so let's check that
         val refSeq = take(v)
@@ -275,7 +276,12 @@ object VariantPromoter extends Serializable with Logging {
         if (shift != 0) {
           shiftList = Shift(pos, shift) :: shiftList
         }
-        
+			} catch {
+			case e: Throwable => {
+			log.warn("Caught exception %s. Ignoring.".format(e))
+			}
+	}
+
         // keep crawling
         crawl
       }
@@ -335,7 +341,7 @@ case class VariantPromoter(promoter: ReferencePromoter,
       .setHaplotypeNumber(copy)
       .setCopyNumber(samplePloidy)
       .setVariants(bufferAsJavaList(variants.toBuffer))
-      .setGcRatio(sequence.count(c => c == 'C' || c == 'G').toDouble /
+      .setGcRatio(sequence.count(c => c == 'C' || c == 'G' || c == 'c' || c == 'g').toDouble /
                   sequence.length.toDouble)
       .setOriginalGcRatio(promoter.gcRatio)
       .setSpacingChanges(tfbsSpacing.count(s => s % 5 == 0) -
