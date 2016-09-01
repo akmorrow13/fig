@@ -16,19 +16,14 @@
 package net.fnothaft.fig
 
 import java.io.File
+
 import net.fnothaft.fig.models._
-import org.apache.hadoop.mapreduce.Job
-import org.apache.spark.SparkContext._
-import org.apache.spark.{ Logging, SparkContext }
+import org.apache.spark.SparkContext
 import org.bdgenomics.adam.rdd.ADAMContext._
 import org.bdgenomics.adam.util.TwoBitFile
-import org.bdgenomics.formats.avro._
 import org.bdgenomics.utils.cli._
-import org.bdgenomics.utils.parquet.io.LocalFileByteAccess
-import org.kohsuke.args4j.{ Argument, Option => Args4jOption }
-import parquet.avro.AvroReadSupport
-import parquet.hadoop.ParquetInputFormat
-import parquet.hadoop.util.ContextUtil
+import org.bdgenomics.utils.io.LocalFileByteAccess
+import org.kohsuke.args4j.{Argument, Option => Args4jOption}
 
 object Fig extends BDGCommandCompanion {
   val commandName = "fig"
@@ -65,7 +60,7 @@ class FigArgs extends Args4jBase {
 class Fig(protected val args: FigArgs) extends BDGSparkCommand[FigArgs] {
   val companion = Fig
 
-  def run(sc: SparkContext, job: Job) {
+  def run(sc: SparkContext) {
 
     // load two bit file
     val tbf = new TwoBitFile(new LocalFileByteAccess(new File(args.contigs)))

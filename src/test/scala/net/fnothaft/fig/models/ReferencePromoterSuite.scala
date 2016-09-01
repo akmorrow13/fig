@@ -18,6 +18,7 @@ package net.fnothaft.fig.models
 import net.fnothaft.fig.FigFunSuite
 import org.apache.spark.SparkContext
 import org.bdgenomics.adam.models._
+import org.bdgenomics.adam.rdd.features.GeneRDD
 import org.bdgenomics.adam.util.ReferenceFile
 import org.bdgenomics.formats.avro.{ Contig, Feature, Strand }
 import org.bdgenomics.utils.misc.MathUtils
@@ -25,6 +26,8 @@ import org.bdgenomics.utils.misc.MathUtils
 case class SimpleReferenceFile() extends ReferenceFile {
   //         ABCDEFGHIJKLMNOPQRSTUVWXYZ
   val ref = "AACTGCGACCTATCTGGGATACTCGC"
+
+  def sequences: SequenceDictionary = new SequenceDictionary(Vector(SequenceRecord("chr", ref.length)))
   def extract(region: ReferenceRegion): String = {
     require(region.referenceName == "alphabet")
     ref.substring(region.start.toInt, region.end.toInt)
@@ -34,6 +37,8 @@ case class SimpleReferenceFile() extends ReferenceFile {
 class ReferencePromoterSuite extends FigFunSuite {
 
   val rf = SimpleReferenceFile()
+  val sequences: SequenceDictionary = new SequenceDictionary(Vector(SequenceRecord("chr", 1000)))
+
 
   def makeAnnotator(sc: SparkContext): MotifRepository = {
     val motifs = Seq(Motif("tf1", Array(0.0, 1.0, 0.0, 0.0, // C
@@ -80,7 +85,7 @@ class ReferencePromoterSuite extends FigFunSuite {
       "tf2 alphabet 12 15 +",
       "tf3 alphabet 21 24 +"))
     
-    val rpArray = ReferencePromoter(sc.parallelize(Seq(g)),
+    val rpArray = ReferencePromoter(GeneRDD(sc.parallelize(Seq(g)), sequences),
                                     f,
                                     rf,
                                     20,
@@ -96,18 +101,18 @@ class ReferencePromoterSuite extends FigFunSuite {
     assert(rp.tfbs.size === 2)
     assert(rp.tfbs.filter(_.getTf === "tf1").size === 1)
     val tf1 = rp.tfbs.filter(_.getTf === "tf1").head
-    assert(tf1.getContig.getContigName === "alphabet")
+    assert(tf1.getContigName === "alphabet")
     assert(tf1.getStart === 2L)
     assert(tf1.getEnd === 5L)
-    assert(tf1.getOrientation === Strand.Forward)
+    assert(tf1.getOrientation === Strand.FORWARD)
     assert(tf1.getSequence === "CTG")
     assert(MathUtils.fpEquals(tf1.getPredictedAffinity, 1.0))
     assert(rp.tfbs.filter(_.getTf === "tf2").size === 1)
     val tf2 = rp.tfbs.filter(_.getTf === "tf2").head
-    assert(tf2.getContig.getContigName === "alphabet")
+    assert(tf2.getContigName === "alphabet")
     assert(tf2.getStart === 12L)
     assert(tf2.getEnd === 15L)
-    assert(tf2.getOrientation === Strand.Forward)
+    assert(tf2.getOrientation === Strand.FORWARD)
     assert(tf2.getSequence === "TCT")
     assert(MathUtils.fpEquals(tf2.getPredictedAffinity, 0.5))
   }
@@ -125,7 +130,7 @@ class ReferencePromoterSuite extends FigFunSuite {
       .collect()
 
     assert(tfbs.size === 3)
-    assert(tfbs.forall(_.getContig.getContigName === "chr1"))
+    assert(tfbs.forall(_.getContigName === "chr1"))
     assert(tfbs.filter(f => f.getStart == 11483L && f.getEnd == 11492L)
       .length === 2)
     assert(tfbs.filter(f => f.getStart == 11482L && f.getEnd == 11493L)

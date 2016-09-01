@@ -16,12 +16,12 @@
 package net.fnothaft.fig.models
 
 import net.fnothaft.fig.avro.BindingSite
-import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
-import org.bdgenomics.adam.models.{ Gene, ReferencePosition, ReferenceRegion }
-import org.bdgenomics.adam.rdd.BroadcastRegionJoin
+import org.bdgenomics.adam.models.{ReferencePosition, ReferenceRegion}
+import org.bdgenomics.adam.rdd.InnerBroadcastRegionJoin
+import org.bdgenomics.adam.rdd.features.GeneRDD
 import org.bdgenomics.adam.util.ReferenceFile
-import org.bdgenomics.formats.avro.{ Contig, Strand }
+import org.bdgenomics.formats.avro.Strand
 
 object ReferencePromoter extends Serializable {
 
@@ -35,9 +35,9 @@ object ReferencePromoter extends Serializable {
       val start = sl(2).toLong
       val end = sl(3).toLong
       val orientation = if(sl(4) == "-") {
-        Strand.Reverse
+        Strand.REVERSE
       } else if (sl(4) == "+") {
-        Strand.Forward
+        Strand.FORWARD
       } else {
         throw new IllegalArgumentException("Unknown strand '%s' for: %s.".format(sl(4), l))
       }
@@ -47,7 +47,7 @@ object ReferencePromoter extends Serializable {
                        end),
        BindingSite.newBuilder()
          .setTf(sl(0))
-         .setContig(Contig.newBuilder().setContigName(ctg).build())
+         .setContigName(ctg)
          .setStart(start)
          .setEnd(end)
          .setOrientation(orientation)
@@ -55,7 +55,7 @@ object ReferencePromoter extends Serializable {
     })
   }
 
-  def apply(gRdd: RDD[Gene],
+  def apply(gRdd: GeneRDD,
             features: RDD[String],
             twoBit: ReferenceFile,
             startDistance: Int,
@@ -69,7 +69,7 @@ object ReferencePromoter extends Serializable {
     // from gene rdd, we want to extract:
     // - the gene name
     // - the regulatory region before the gene
-    val namePromoterTss = gRdd.map(g => {
+    val namePromoterTss = gRdd.rdd.map(g => {
       // for simplicity's sake, we're going to take the transcription start site
       // from the first transcript in the gene
       val tRegion = g.transcripts.head.region
@@ -81,7 +81,7 @@ object ReferencePromoter extends Serializable {
                                     tss.start - stopDistance)
 
       // this will be used in a region join later, so key with the region
-      (pRegion, (g.id, tss))
+      (pRegion, Tuple2[String, ReferencePosition](g.id, tss))
     })
 
     // we will cache the last RDD, as we'll use it in a region join _and_ a join
@@ -91,8 +91,9 @@ object ReferencePromoter extends Serializable {
 
     // now, we run a region join. The genes have reasonably low cardinality (~30k),
     // so we will use a broadcast region join.
-    val regionJoinedRdd = BroadcastRegionJoin.partitionAndJoin(namePromoterTss,
-                                                               bindingSites)
+    val regionJoinedRdd = InnerBroadcastRegionJoin[Tuple2[String, ReferencePosition], BindingSite]().partitionAndJoin(
+      namePromoterTss,
+      bindingSites)
 
     // we now need to group the binding sites by gene
     val sitesByGene = regionJoinedRdd.map(kvp => {

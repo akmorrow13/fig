@@ -16,14 +16,14 @@
 package net.fnothaft.fig.models
 
 import net.fnothaft.fig.avro._
-import org.apache.spark.SparkContext._
 import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
 import org.bdgenomics.adam.models.ReferenceRegion._
-import org.bdgenomics.adam.models.{ ReferencePosition, ReferenceRegion }
-import org.bdgenomics.adam.rdd.BroadcastRegionJoin
-import org.bdgenomics.adam.rich.RichGenotype._
-import org.bdgenomics.formats.avro.{ Genotype, GenotypeAllele, Variant }
+import org.bdgenomics.adam.models.{ReferencePosition, ReferenceRegion}
+import org.bdgenomics.adam.rdd.InnerBroadcastRegionJoin
+import org.bdgenomics.adam.rdd.variation.GenotypeRDD
+import org.bdgenomics.formats.avro.{Genotype, GenotypeAllele, Variant}
+
 import scala.annotation.tailrec
 import scala.collection.JavaConversions._
 import scala.collection.mutable.Buffer
@@ -35,14 +35,14 @@ private[models] case class Shift(location: Long,
 object VariantPromoter extends Serializable with Logging {
 
   def apply(pRdd: RDD[ReferencePromoter],
-            gRdd: RDD[Genotype],
+            gRdd: GenotypeRDD,
             motifRepository: MotifRepository): RDD[VariantPromoter] = {
     // cache promoter RDD; we'll need it a few times
     pRdd.cache()
 
     // region join genotypes versus promoters
-    val jRdd = BroadcastRegionJoin.partitionAndJoin(pRdd.keyBy(_.pos),
-                                                    gRdd.keyBy(ReferencePosition(_)
+    val jRdd =  InnerBroadcastRegionJoin[ReferencePromoter, Genotype]().partitionAndJoin(pRdd.keyBy(_.pos),
+                                                    gRdd.rdd.keyBy(ReferencePosition(_)
                                                       .asInstanceOf[ReferenceRegion]))
 
     // map down and group-by sample and gene
@@ -82,7 +82,7 @@ object VariantPromoter extends Serializable with Logging {
       .distinct
     
     // get phasing info
-    val isPhased = genotypes.forall(g => g.getIsPhased)
+    val isPhased = genotypes.forall(g => g.getPhased)
 
     if (ploidies.length != 1) {
       log.warn("Discarding genotypes on %s for sample %s, as variable ploidy was seen.".format(
@@ -102,7 +102,7 @@ object VariantPromoter extends Serializable with Logging {
       val variantsPerHaplotype = (0 until ploidy).map(i => {
         (i, genotypes.flatMap(g => {
           // we only keep this variant if it is the true alt call
-          if (g.getAlleles.get(i) == GenotypeAllele.Alt) {
+          if (g.getAlleles.get(i) == GenotypeAllele.ALT) {
             Some(g.getVariant)
           } else {
             None
@@ -223,7 +223,7 @@ object VariantPromoter extends Serializable with Logging {
     
     // helper method for moving to the new variant loci
     def moveTo(variant: Variant) {
-      assert(variant.getContig.getContigName == refRegion.referenceName)
+      assert(variant.getContigName == refRegion.referenceName)
       assert(variant.getStart <= refRegion.end && variant.getStart > pos)
 
       // how far do we need to advance?
@@ -362,7 +362,7 @@ case class VariantPromoter(promoter: ReferencePromoter,
             } else {
               modifiedSites += ModifiedBindingSite.newBuilder()
                 .setTf(vs.getTf)
-                .setContig(vs.getContig)
+                .setContigName(vs.getContigName)
                 .setStart(vs.getStart)
                 .setEnd(vs.getEnd)
                 .setShift(vs.getShift)

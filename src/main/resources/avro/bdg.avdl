@@ -20,44 +20,6 @@
 protocol BDG {
 
 /**
- Record for describing a reference assembly. Not used for storing the contents
- of said assembly.
-
- @see NucleotideContigFragment
- */
-record Contig {
-  /**
-   The name of this contig in the assembly (e.g., "chr1").
-   */
-  union { null, string } contigName = null;
-
-  /**
-   The length of this contig.
-   */
-  union { null, long }   contigLength = null;
-
-  /**
-   The MD5 checksum of the assembly for this contig.
-   */
-  union { null, string } contigMD5 = null;
-
-  /**
-   The URL at which this reference assembly can be found.
-   */
-  union { null, string } referenceURL = null;
-
-  /**
-   The name of this assembly (e.g., "hg19").
-   */
-  union { null, string } assembly = null;
-
-  /**
-   The species that this assembly is for.
-   */
-  union { null, string } species = null;
-}
-
-/**
  Descriptors for the type of a structural variant. The most specific descriptor
  should be used, if possible. E.g., duplication should be used instead of
  insertion if the inserted sequence is not novel. Tandem duplication should
@@ -100,47 +62,78 @@ record StructuralVariant {
   union { null, int } endWindow = null;
 }
 
+/**
+ Variant.
+ */
 record Variant {
+
   /**
-   The reference contig that this variant exists on.
+   The reference contig this variant exists on. VCF column 1 "CONTIG".
    */
-  union { null, Contig } contig = null;
+  union { null, string } contigName = null;
+
   /**
-   The 0-based start position of this variant on the reference contig.
+   The zero-based start position of this variant on the reference contig.
+   VCF column 2 "POS" converted to zero-based coordinate system, closed-open intervals.
    */
   union { null, long } start = null;
+
   /**
-   The 0-based, exclusive end position of this variant on the reference contig.
+   The zero-based, exclusive end position of this variant on the reference contig.
+   Calculated by start + referenceAllele.length().
    */
   union { null, long } end = null;
 
   /**
-   A string describing the reference allele at this site.
+   Zero or more unique names or identifiers for this variant. If this is a dbSNP
+   variant it is encouraged to use the rs number(s). VCF column 3 "ID" copied for
+   multi-allelic sites.
+   */
+  array<string> names = [];
+
+  /**
+   A string describing the reference allele at this site. VCF column 4 "REF".
    */
   union { null, string } referenceAllele = null;
+
   /**
-   A string describing the variant allele at this site. Should be left null if
-   the site is a structural variant.
+   A string describing the alternate allele at this site. VCF column 5 "ALT" split
+   for multi-allelic sites.
    */
   union { null, string } alternateAllele = null;
-  /**
-   The structural variant at this site, if the alternate allele is a structural
-   variant. If the site is not a structural variant, this field should be left
-   null.
-   */
-  union { null, StructuralVariant } svAllele = null;
 
   /**
-   A boolean describing whether this variant call is somatic; in this case, the
-   `referenceAllele` will have been observed in another sample.
+   True if this variant call is somatic; in this case, the referenceAllele will
+   have been observed in another sample. VCF INFO reserved key "SOMATIC" copied
+   for multi-allelic sites.
    */
-  union { boolean, null } isSomatic = false;
+  union { boolean, null } somatic = false;
 }
 
+/**
+ Strand of an alignment or feature.
+ */
 enum Strand {
-  Forward,
-  Reverse,
-  Independent
+
+  /**
+   Forward ("+") strand.
+   */
+  FORWARD,
+
+  /**
+   Reverse ("-") strand.
+   */
+  REVERSE,
+
+  /**
+   Independent or not stranded (".").
+   */
+  INDEPENDENT,
+
+  /**
+   Strandedness is relevant, but unknown ("?").
+   */
+  UNKNOWN
 }
 
 }

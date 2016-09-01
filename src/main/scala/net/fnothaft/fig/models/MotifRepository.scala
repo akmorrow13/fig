@@ -37,7 +37,7 @@ trait MotifRepository extends Serializable with Logging {
                sequence: String,
                region: ReferenceRegion): Iterable[BindingSite] = {
     tfbs.flatMap(site => {
-      assert(site.getContig.getContigName == region.referenceName)
+      assert(site.getContigName == region.referenceName)
 
       // is this site fully contained in the region?
       if (site.getStart >= region.start &&
@@ -76,8 +76,8 @@ trait MotifRepository extends Serializable with Logging {
 
     // score the motif
     val (motifScore, motifSequence) = tfbs.getOrientation match {
-      case Strand.Forward => (motif.sequenceProbability(sequence), sequence)
-      case Strand.Reverse => {
+      case Strand.FORWARD => (motif.sequenceProbability(sequence), sequence)
+      case Strand.REVERSE => {
         val rev = sequence.reverse
         (motif.sequenceProbability(rev), rev)
       }

@@ -24,7 +24,7 @@ record BindingSite {
   string tf;
 
   // position
-  org.bdgenomics.formats.avro.Contig contig;
+  string contigName;
   long start;
   long end;
   int shift = 0;
@@ -42,7 +42,7 @@ record ModifiedBindingSite {
   string tf;
 
   // position
-  org.bdgenomics.formats.avro.Contig contig;
+  string contigName;
   long start;
   long end;
   int shift;
